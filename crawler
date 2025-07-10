@@ -1,0 +1,40 @@
+import requests
+from bs4 import BeautifulSoup
+import pandas as pd
+import re
+
+def get_stock_price(code, page=1):
+    base_url = "https://finance.naver.com/item/sise_day.nhn"
+    headers = {"User-Agent": "Mozilla/5.0"}
+    data = []
+
+    for p in range(1, page + 1):
+        url = f"{base_url}?code={code}&page={p}"
+        res = requests.get(url, headers=headers)
+        soup = BeautifulSoup(res.text, 'html.parser')
+        table = soup.select_one("table.type2")
+
+        rows = table.select("tr")
+        for row in rows[1:]:
+            cols = row.find_all("td")
+            if len(cols) != 7:
+                continue
+            try:
+                date = cols[0].text.strip()
+                close = int(cols[1].text.strip().replace(',', ''))
+                diff_text = cols[2].text.strip()
+                diff = int(re.sub(r'[^0-9\-]', '', diff_text))
+                open_price = int(cols[3].text.strip().replace(',', ''))
+                high = int(cols[4].text.strip().replace(',', ''))
+                low = int(cols[5].text.strip().replace(',', ''))
+                volume = int(cols[6].text.strip().replace(',', ''))
+                
+                data.append([date, close, diff, open_price, high, low, volume])
+            except ValueError:
+                continue
+
+    df = pd.DataFrame(data, columns=["날짜", "종가", "전일비", "시가", "고가", "저가", "거래량"])
+    return df
+
+df = get_stock_price('005930', page=3)
+df.head(10)
